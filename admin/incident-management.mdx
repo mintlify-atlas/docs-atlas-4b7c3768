@@ -1,0 +1,89 @@
+---
+title: "Triage and resolve citizen incident reports"
+description: "Browse reports by category, move them through pending → in process → resolved, attach evidence photos, and trigger push and email notifications."
+---
+
+Citizens submit incident reports from the mobile app with a text description, a photo, and GPS coordinates. The incident management panel lets admins triage those reports category by category, move them through a defined lifecycle, attach evidence photos, and keep citizens informed through push notifications and email.
+
+## Incident dashboard
+
+`GET /admin/incidencias` shows all **active** categories (where `activa = true`). Each category displays a count of reports currently in `estado = 'pendiente'`, giving you a quick view of the work queue per area.
+
+## Report table
+
+Clicking a category opens its report table at `/tabla-incidencias/{categoria_id}`. Reports are filtered by state using the `estado` query parameter, which defaults to `pendiente` if omitted:
+
+```text
+/tabla-incidencias/3?estado=pendiente
+/tabla-incidencias/3?estado=en proceso
+/tabla-incidencias/3?estado=resuelto
+```
+
+The page also shows three counters — one per state — so you can see the full workload for the selected category at a glance.
+
+## Report states
+
+| State | Meaning |
+| --- | --- |
+| `pendiente` | Newly submitted; not yet reviewed by an admin |
+| `en proceso` | Admin has acknowledged the report and is working on it |
+| `resuelto` | The underlying issue has been resolved |
+
+<Note>
+  Only `en proceso` and `resuelto` are valid target states when updating a
+  report. Reports cannot be moved back to `pendiente` through the admin panel.
+</Note>
+
+## Updating a report status
+
+`POST /admin/incidencia/{id}/estado`
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `nuevo_estado` | string | Yes | `en proceso` or `resuelto` |
+| `comentario_admin` | string (max 1000) | No | Comment visible to the citizen in the mobile app |
+| `evidencia` | image file | No | JPEG, PNG, JPG, or WebP; maximum 5 MB |
+
+Evidence files are stored under `storage/app/public/evidencias/` and the path is saved in the `evidencia_path` column on the `incidencias` record.
+
+## Notifications triggered on update
+
+Every status update sends a Firebase Cloud Messaging (FCM) push notification to the citizen's registered device (`fcm_token`). The notification title and body reflect the new state:
+
+- `en proceso` — title: "Reporte en Proceso 🚧"
+- `resuelto` — title: "¡Reporte Resuelto! ✅"
+
+If a `comentario_admin` is provided, it is appended to the push notification body. If the citizen's device token is not available the push is skipped silently and the error is logged.
+
+When `nuevo_estado = resuelto`, a **ReporteResuelto** email is also sent to the citizen's registered email address. If email delivery fails the report update is still saved and the push notification is still sent.
+
+<Tip>
+  Always include a `comentario_admin` when updating a report. The comment
+  appears in both the push notification body and the resolution email, giving
+  the citizen clear context about what action was taken.
+</Tip>
+
+## Resolution workflow
+
+<Steps>
+  <Step title="Open the incident dashboard">
+    Navigate to `/admin/incidencias`. Review the pending report count per active
+    category and select the category with the highest backlog.
+  </Step>
+  <Step title="Review pending reports">
+    The table at `/tabla-incidencias/{categoria_id}` opens filtered to
+    `pendiente` by default. Read the citizen's description and inspect the
+    uploaded photo and GPS location.
+  </Step>
+  <Step title="Mark the report as in process">
+    Submit the update form with `nuevo_estado = en proceso` and an optional
+    comment explaining the next steps. The citizen receives a push notification
+    immediately.
+  </Step>
+  <Step title="Resolve the report">
+    Once the issue has been addressed, submit the form again with
+    `nuevo_estado = resuelto`. Optionally attach an evidence photo (up to 5 MB)
+    and a closing comment. The citizen receives a push notification and a
+    **ReporteResuelto** email.
+  </Step>
+</Steps>

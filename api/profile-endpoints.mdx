@@ -1,0 +1,122 @@
+---
+title: "Citizen profile API endpoints reference"
+description: "Read your full user record, update your display name, or change your password using the three profile endpoints in the Incidencias API."
+---
+
+Profile endpoints allow authenticated citizens to read their full user record, update their display name, and change their account password. All three endpoints are protected and require a valid Bearer token. The update endpoint is designed for the Ionic app: when the request includes an `Accept: application/json` header or targets the `/api/*` path, it returns a JSON response instead of a web redirect.
+
+---
+
+## GET /api/user/profile
+
+Returns the full user object for the authenticated citizen.
+
+**Access:** Protected (`auth:sanctum`)
+
+**Response — 200 OK**
+
+```json
+{
+  "id": 7,
+  "name": "María López",
+  "email": "maria@example.com",
+  "role": "ciudadano",
+  "curp": "LOPM900101MDFXXX00",
+  "ine_frente": "ine_images/abc123_frente.jpg",
+  "ine_reverso": "ine_images/abc123_reverso.jpg",
+  "status": "approved",
+  "rejection_reason": null,
+  "correction_fields": null,
+  "fcm_token": "dXBkYXRlZC10b2tlbg...",
+  "photo_url": null,
+  "email_verified_at": "2024-06-01T10:00:00.000000Z",
+  "created_at": "2024-05-28T08:00:00.000000Z",
+  "updated_at": "2024-06-10T12:00:00.000000Z"
+}
+```
+
+<Note>
+The `password` and `remember_token` fields are always hidden from the serialised response.
+</Note>
+
+---
+
+## POST /api/user/profile/update
+
+Updates the authenticated citizen's display name. Only the `name` field can be changed through this endpoint — email and identity documents are managed separately.
+
+**Access:** Protected (`auth:sanctum`)
+
+<ParamField body="name" type="string" required>
+  The citizen's new display name. Maximum 255 characters.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Perfil actualizado",
+  "user": {
+    "id": 7,
+    "name": "María López García",
+    "email": "maria@example.com",
+    ...
+  }
+}
+```
+
+**Example request**
+
+```bash
+curl -X POST https://your-domain.com/api/user/profile/update \
+  -H "Authorization: Bearer 1|abc123..." \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{"name": "María López García"}'
+```
+
+---
+
+## POST /api/user/profile/password
+
+Changes the authenticated citizen's account password. The current password must be provided to confirm the citizen's identity before the change is applied.
+
+**Access:** Protected (`auth:sanctum`)
+
+<ParamField body="current_password" type="string" required>
+  The citizen's existing password. Validated against the stored hash using Laravel's `current_password` rule.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The desired new password. Must satisfy Laravel's default password complexity rules and match `password_confirmation`.
+</ParamField>
+
+<ParamField body="password_confirmation" type="string" required>
+  Must be identical to `password`.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Contraseña actualizada correctamente"
+}
+```
+
+**Example request**
+
+```bash
+curl -X POST https://your-domain.com/api/user/profile/password \
+  -H "Authorization: Bearer 1|abc123..." \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "current_password": "old-secret",
+    "password": "new-secret-123",
+    "password_confirmation": "new-secret-123"
+  }'
+```
+
+<Warning>
+If `current_password` does not match the stored password, the API returns a `422` validation error. The existing password is **not** changed and the current Bearer token remains valid.
+</Warning>

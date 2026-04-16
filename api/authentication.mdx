@@ -1,0 +1,81 @@
+---
+title: "Authenticate Incidencias API requests with tokens"
+description: "Obtain a Sanctum Bearer token from login or register, attach it to protected requests, and handle 401 and 403 auth errors from the Incidencias API."
+---
+
+The Incidencias API uses Laravel Sanctum to issue opaque Bearer tokens. When a citizen registers or logs in, the API returns an `access_token` string. You must include that token in every subsequent request to a protected endpoint. Tokens are per-device and are invalidated when the user logs out or when an administrator revokes the account.
+
+## Obtaining a token
+
+Call either of the two public authentication endpoints. Both return an `access_token` field in the response body.
+
+```json
+// POST /api/login  or  POST /api/register  →  response body
+{
+  "access_token": "1|abc123...",
+  "user": { ... }
+}
+```
+
+Store the token securely on the device (for example, in Ionic's `@capacitor/preferences`) and send it with every subsequent request.
+
+## Using the token
+
+Include the token as a Bearer credential in the `Authorization` header:
+
+```bash
+curl -X GET https://your-domain.com/api/user \
+  -H "Authorization: Bearer 1|abc123..." \
+  -H "Accept: application/json"
+```
+
+<Tip>
+Always include `Accept: application/json` so Laravel returns JSON error responses instead of HTML redirects when the token is missing or invalid.
+</Tip>
+
+## Public vs. protected endpoints
+
+| Endpoint | Access |
+|----------|--------|
+| `POST /api/register` | Public |
+| `POST /api/login` | Public |
+| `POST /api/login-google` | Public |
+| `POST /api/forgot-password` | Public |
+| `POST /api/reset-password-pin` | Public |
+| `GET /api/user` | Protected (`auth:sanctum`) |
+| `POST /api/user/fcm-token` | Protected (`auth:sanctum`) |
+| `POST /api/verificar-cuenta` | Protected (`auth:sanctum`) |
+| `GET /api/user/profile` | Protected (`auth:sanctum`) |
+| `POST /api/user/profile/update` | Protected (`auth:sanctum`) |
+| `POST /api/user/profile/password` | Protected (`auth:sanctum`) |
+| `POST /api/incidencias` | Protected (`auth:sanctum`) |
+| `GET /api/mis-reportes` | Protected (`auth:sanctum`) |
+| `GET /api/categorias` | Protected (`auth:sanctum`) |
+| `POST /api/logout` | Protected (`auth:sanctum`) |
+
+## Common authentication errors
+
+### 401 Unauthenticated
+
+The `Authorization` header is missing, the token is malformed, or the token has been deleted (e.g., after logout).
+
+```json
+{
+  "message": "Unauthenticated."
+}
+```
+
+### 403 Forbidden — account rejected
+
+Returned by `POST /api/login`, `POST /api/login-google`, and `GET /api/user` when the user's account `status` is `rejected`. The response also includes the administrator's `motivo` (rejection reason).
+
+```json
+{
+  "message": "Tu acceso ha sido revocado permanentemente.",
+  "motivo": "Documentación inválida"
+}
+```
+
+<Warning>
+If `GET /api/user` returns `403`, the API has already deleted all of the user's tokens. Your app should clear the locally stored token and redirect the user to the login screen.
+</Warning>

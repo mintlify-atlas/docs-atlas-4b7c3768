@@ -1,0 +1,52 @@
+---
+title: "How authentication works in Incidencias Backend"
+description: "Incidencias Backend uses Laravel Sanctum for token-based auth. Learn how Bearer tokens work, the five user status values, and real-time session revocation."
+---
+
+Incidencias Backend authenticates citizens using [Laravel Sanctum](https://laravel.com/docs/sanctum), a lightweight token-based authentication system. When a user registers or logs in, the API returns a personal access token (`access_token`) that must be included in every subsequent request. There are no session cookies — all authentication state lives in the token.
+
+## How tokens work
+
+After a successful registration or login, the response body contains an `access_token` string. Include this token in every protected request using the `Authorization` header:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+Tokens are tied to a single user. Calling `POST /api/logout` deletes the current token from the database. A user can hold multiple tokens (one per device), and each is revoked independently.
+
+## User status lifecycle
+
+Every citizen account carries a `status` field. Status controls what the user is allowed to do inside the platform.
+
+| Status | Meaning |
+|---|---|
+| `pending` | Registered, awaiting admin approval |
+| `invitado` | Signed in with Google, not yet verified |
+| `action_required` | Admin requested document corrections |
+| `approved` | Full access to submit incident reports |
+| `rejected` | Account permanently blocked |
+
+Only accounts with `approved` status can submit incident reports. All other statuses allow login but restrict write access.
+
+## Real-time status sync
+
+The `GET /api/user` endpoint returns the latest user object from the database on every call. Its primary purpose is status synchronization: if an admin rejects a user while they are mid-session, the next call to this endpoint returns `403` and **deletes all of that user's tokens**, forcing an immediate logout.
+
+<Note>
+  Poll `GET /api/user` at appropriate intervals in your mobile app to keep the local user state current. Any `403` response from this endpoint means the session has been permanently revoked.
+</Note>
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Register an account" icon="user-plus" href="/auth/registration">
+    Create a citizen account with name, email, CURP, and INE documents.
+  </Card>
+  <Card title="Sign in with Google" icon="google" href="/auth/google-login">
+    Authenticate via Firebase and link an identity later.
+  </Card>
+  <Card title="Reset your password" icon="lock-keyhole" href="/auth/password-reset">
+    Recover access using a 6-digit PIN sent to your email.
+  </Card>
+</CardGroup>

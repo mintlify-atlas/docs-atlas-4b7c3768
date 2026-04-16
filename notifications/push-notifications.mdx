@@ -1,0 +1,71 @@
+---
+title: 'Send push notifications via Firebase Cloud Messaging'
+description: 'Register a device FCM token after login so citizens receive instant push alerts when an admin changes their incident report status to in process or resolved.'
+---
+
+Incidencias Backend uses Firebase Cloud Messaging (FCM) to deliver real-time push notifications to citizens' mobile devices. When an admin updates the status of an incident report to either `en proceso` or `resuelto`, the backend looks up the citizen's registered device token and sends a targeted push notification via FCM. No polling is required — citizens are alerted instantly the moment their report changes state.
+
+## How it works
+
+<Steps>
+  <Step title="Register a device token after login">
+    After the user authenticates, the mobile app must save the FCM device token to the backend. Send a `POST` request to `/api/user/fcm-token` with the token in the request body. The backend stores it on the authenticated user's record.
+
+    <ParamField body="fcm_token" type="string" required>
+      The FCM registration token obtained from the Firebase SDK on the device.
+    </ParamField>
+
+    ```bash cURL
+    curl --request POST \
+      --url https://your-domain.com/api/user/fcm-token \
+      --header 'Authorization: Bearer <access_token>' \
+      --header 'Content-Type: application/json' \
+      --data '{ "fcm_token": "device_token_string" }'
+    ```
+
+    A successful response:
+
+    ```json JSON
+    {
+      "message": "Token de dispositivo guardado correctamente."
+    }
+    ```
+  </Step>
+
+  <Step title="Admin updates a report status">
+    When an admin changes a report's `estado` to either `en proceso` or `resuelto` (and optionally adds an admin comment), the backend immediately attempts to send a push notification to the citizen's registered device token.
+  </Step>
+
+  <Step title="Notification is dispatched via FCM">
+    The backend instantiates the Firebase SDK using the service account credentials at `storage/app/firebase-credentials.json`, builds a `CloudMessage`, and sends it to the citizen's FCM token. The notification title and body are constructed based on the new status.
+
+    | New status | Notification title | Body |
+    |---|---|---|
+    | `resuelto` | `¡Reporte Resuelto! ✅` | Category and status summary, plus admin comment if present |
+    | `en proceso` | `Reporte en Proceso 🚧` | Category and status summary, plus admin comment if present |
+
+    If the admin added a comment (`comentario_admin`), it is appended to the notification body: `Comentario: <admin comment text>`.
+  </Step>
+</Steps>
+
+## Firebase credentials setup
+
+Place the Firebase service account JSON file at the following path within the project:
+
+```
+storage/app/firebase-credentials.json
+```
+
+Download this file from the Firebase Console under **Project settings → Service accounts → Generate new private key**. This file must be present for push notifications to function. Do not commit it to version control.
+
+## Behavior on logout
+
+<Note>
+  When a citizen calls `POST /api/logout`, the backend sets their `fcm_token` field to `null`. This prevents push notifications from being delivered to a device after the user has signed out.
+</Note>
+
+## Error handling
+
+<Note>
+  Push notification failures are non-fatal. If the Firebase credentials file is missing or the FCM send call throws an exception, the error is written to the Laravel log and the status update still completes successfully. Citizens will not receive the push notification in that case, but the report state change is persisted.
+</Note>

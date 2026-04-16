@@ -1,0 +1,45 @@
+---
+title: "Incidencias admin panel: features and access"
+description: "The Incidencias admin panel lets administrators verify citizen identity documents, manage incident reports by category, and view live statistics."
+---
+
+The Incidencias admin panel is a web interface built into the Laravel backend that gives administrators full control over the platform. From a single browser session, admins can review citizen identity documents and approve or reject accounts, browse and resolve incident reports grouped by category, maintain the list of available categories, and review live statistics with an interactive heatmap of reported incidents.
+
+## Access requirements
+
+Only users with `role = 'admin'` and `status = 'approved'` in the `users` table can use the admin panel. There is no separate admin login page — administrators sign in through the standard web login at `/login` using their email and password. All routes under `/admin/*` and `/dashboard` are protected by the `auth` and `verified` middleware.
+
+<Warning>
+  If a session belongs to a user with `role = 'ciudadano'`, attempting to reach
+  `/dashboard` returns a plain-text denial message rather than a redirect.
+  Ensure the admin record in the database has both the correct `role` and
+  `status` values before deploying.
+</Warning>
+
+## Dashboard summary
+
+After logging in, navigate to `/dashboard` to see two live counters computed directly from the database on every page load:
+
+| Counter | Query |
+| --- | --- |
+| Pending user approvals | `users` where `status = 'pending'` |
+| New incident reports | `incidencias` where `estado = 'pendiente'` |
+
+These numbers give you an at-a-glance view of the current work queue without navigating to individual panels.
+
+## Panel sections
+
+<CardGroup cols={2}>
+  <Card title="User management" icon="users" href="/admin/user-management">
+    Review citizen identity documents and approve, reject, or request corrections on accounts.
+  </Card>
+  <Card title="Incident management" icon="flag" href="/admin/incident-management">
+    Browse reports by category, update statuses, add admin comments, and upload evidence photos.
+  </Card>
+  <Card title="Categories" icon="tag" href="/admin/categories">
+    Create, update, and deactivate the incident categories that citizens see in the mobile app.
+  </Card>
+  <Card title="Statistics" icon="chart-bar" href="/admin/statistics">
+    View total report counts, per-category breakdowns, resolution rates, and an interactive GPS heatmap.
+  </Card>
+</CardGroup>

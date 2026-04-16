@@ -1,0 +1,102 @@
+---
+title: 'Register a new citizen account with INE documents'
+description: 'Submit name, email, password, CURP, and front/back INE photos to create a citizen account. The account starts as pending until an admin approves it.'
+---
+
+New citizens create an account by submitting their personal details along with photos of both sides of their INE (National Electoral Institute) identity card. The server stores the images, creates the user record, and immediately returns a Sanctum access token. The account starts with a `pending` status and cannot submit incident reports until an administrator reviews and approves the uploaded documents.
+
+## Endpoint
+
+```http
+POST /api/register
+Content-Type: multipart/form-data
+```
+
+## Request parameters
+
+<ParamField body="name" type="string" required>
+  Full name of the citizen.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Email address. Must be unique across all registered accounts.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Account password. Minimum 6 characters.
+</ParamField>
+
+<ParamField body="curp" type="string" required>
+  18-character Mexican CURP (Clave Única de Registro de Población). Must be unique across all accounts.
+</ParamField>
+
+<ParamField body="ine_frente" type="file" required>
+  Front side of the citizen's INE card. Accepted formats: `jpg`, `jpeg`, `png`. Maximum size: 2 MB.
+</ParamField>
+
+<ParamField body="ine_reverso" type="file" required>
+  Back side of the citizen's INE card. Accepted formats: `jpg`, `jpeg`, `png`. Maximum size: 2 MB.
+</ParamField>
+
+## Response
+
+A successful registration returns HTTP `201` with a JSON body.
+
+<ResponseField name="message" type="string">
+  Human-readable confirmation message (`"Registro exitoso."`).
+</ResponseField>
+
+<ResponseField name="access_token" type="string">
+  Sanctum personal access token. Include this in the `Authorization: Bearer` header for all subsequent requests.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Unique user identifier.</ResponseField>
+    <ResponseField name="name" type="string">Full name.</ResponseField>
+    <ResponseField name="email" type="string">Email address.</ResponseField>
+    <ResponseField name="curp" type="string">CURP code.</ResponseField>
+    <ResponseField name="role" type="string">Always `"ciudadano"` for citizen registrations.</ResponseField>
+    <ResponseField name="status" type="string">Always `"pending"` immediately after registration.</ResponseField>
+    <ResponseField name="ine_frente" type="string">Storage path to the uploaded front INE image.</ResponseField>
+    <ResponseField name="ine_reverso" type="string">Storage path to the uploaded back INE image.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Top-level status field mirroring `user.status`. Always `"pending"` at registration time.
+</ResponseField>
+
+## Example
+
+```bash
+curl -X POST https://your-domain.com/api/register \
+  -F "name=Juan Pérez" \
+  -F "email=juan@example.com" \
+  -F "password=secret123" \
+  -F "curp=PERJ900101HDFRZN08" \
+  -F "ine_frente=@/path/to/ine_front.jpg" \
+  -F "ine_reverso=@/path/to/ine_back.jpg"
+```
+
+```json
+{
+  "message": "Registro exitoso.",
+  "access_token": "1|aBcDeFgHiJkLmNoPqRsTuVwXyZ...",
+  "user": {
+    "id": 42,
+    "name": "Juan Pérez",
+    "email": "juan@example.com",
+    "curp": "PERJ900101HDFRZN08",
+    "role": "ciudadano",
+    "status": "pending",
+    "ine_frente": "ine_images/abc123_frente.jpg",
+    "ine_reverso": "ine_images/abc123_reverso.jpg"
+  },
+  "status": "pending"
+}
+```
+
+<Note>
+  The account status is `pending` until an administrator reviews the uploaded INE documents. The citizen can log in and receive a token, but they cannot submit incident reports until the account is approved. Use `GET /api/user` to poll for status changes.
+</Note>

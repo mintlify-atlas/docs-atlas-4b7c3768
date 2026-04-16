@@ -1,0 +1,132 @@
+---
+title: 'Sign in with Google and verify your identity'
+description: 'Use Firebase Google auth to log in to Incidencias. New Google users get invitado status and must upload CURP and INE photos to submit reports.'
+---
+
+Incidencias Backend supports Google-based sign-in through Firebase. Your mobile app handles the Firebase authentication flow and obtains the user's email and display name; it then calls the backend with those values. The backend creates the account if it does not already exist, assigns the `invitado` status, and returns an access token. To gain full access, an `invitado` user must complete identity verification by uploading their CURP and INE documents.
+
+## Sign in with Google
+
+### Endpoint
+
+```http
+POST /api/login-google
+Content-Type: application/json
+```
+
+### Request parameters
+
+<ParamField body="email" type="string" required>
+  The user's email address as returned by Firebase after Google authentication.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  The user's display name as returned by Firebase.
+</ParamField>
+
+<ParamField body="photoURL" type="string">
+  URL of the user's Google profile photo. Optional. Stored on the user record if provided.
+</ParamField>
+
+### How it works
+
+<Steps>
+  <Step title="Authenticate with Firebase">
+    Your mobile app initiates the Google sign-in flow using the Firebase Authentication SDK. On success, Firebase returns the user's `email`, `displayName`, and optionally a `photoURL`.
+  </Step>
+  <Step title="Call the backend">
+    POST to `/api/login-google` with the values obtained from Firebase.
+
+    ```bash
+    curl -X POST https://your-domain.com/api/login-google \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "juan@gmail.com",
+        "name": "Juan Pérez",
+        "photoURL": "https://lh3.googleusercontent.com/a/example"
+      }'
+    ```
+  </Step>
+  <Step title="Receive token and user object">
+    The backend returns an `access_token` and the user object. If the email does not exist in the database, a new account is created with `status: "invitado"`.
+
+    ```json
+    {
+      "access_token": "2|xYzAbCdEfGhIjKlMnOpQrStUv...",
+      "user": {
+        "id": 7,
+        "name": "Juan Pérez",
+        "email": "juan@gmail.com",
+        "role": "ciudadano",
+        "status": "invitado",
+        "photo_url": "https://lh3.googleusercontent.com/a/example"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  If the Google account was previously registered and then rejected by an administrator, the login returns `403` with the rejection reason:
+
+  ```json
+  {
+    "message": "Esta cuenta de Google ha sido bloqueada para el sistema.",
+    "motivo": "Documentos falsificados detectados."
+  }
+  ```
+
+  The user cannot regain access while the account holds `rejected` status.
+</Warning>
+
+---
+
+## Complete identity verification
+
+A user with `invitado` status must submit their CURP and INE document photos to have their account reviewed. This moves the account to `pending` status, after which an administrator can approve it.
+
+### Endpoint
+
+```http
+POST /api/verificar-cuenta
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+### Request parameters
+
+<ParamField body="curp" type="string">
+  18-character Mexican CURP. Nullable — can be submitted on a later call if not available now.
+</ParamField>
+
+<ParamField body="ine_frente" type="file">
+  Front side of the citizen's INE card. Accepted formats: `jpg`, `jpeg`, `png`. Maximum size: 2 MB. Nullable.
+</ParamField>
+
+<ParamField body="ine_reverso" type="file">
+  Back side of the citizen's INE card. Accepted formats: `jpg`, `jpeg`, `png`. Maximum size: 2 MB. Nullable.
+</ParamField>
+
+### Example
+
+```bash
+curl -X POST https://your-domain.com/api/verificar-cuenta \
+  -H "Authorization: Bearer <access_token>" \
+  -F "curp=PERJ900101HDFRZN08" \
+  -F "ine_frente=@/path/to/ine_front.jpg" \
+  -F "ine_reverso=@/path/to/ine_back.jpg"
+```
+
+```json
+{
+  "message": "Documentación actualizada. En revisión.",
+  "user": {
+    "id": 7,
+    "status": "pending"
+  }
+}
+```
+
+<Note>
+  All three fields are nullable, so you can submit them in separate calls — for example, if the user first uploads the CURP and then adds the INE images later. Each call that includes new data updates the stored record and resets the status to `pending`.
+</Note>

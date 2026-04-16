@@ -1,0 +1,65 @@
+---
+title: "Incidencias Backend REST API: base URL and errors"
+description: "Overview of the Incidencias REST API: base URL, request conventions, Bearer auth, JSON error shape, and links to all endpoint reference pages."
+---
+
+The Incidencias Backend REST API powers the Ionic mobile app, allowing citizens to register accounts, submit geo-located incident reports, and track their status. Every endpoint lives under the `/api` prefix and communicates exclusively through JSON, with the exception of file upload fields which use `multipart/form-data`. This reference covers the base URL, request conventions, authentication, and the error shape you should handle in your client.
+
+## Base URL
+
+```
+https://your-domain.com/api
+```
+
+All endpoint paths in this reference are relative to this base URL. For local development, replace the domain with `http://localhost:8000`.
+
+## Request conventions
+
+All request bodies must be sent as JSON (`Content-Type: application/json`) unless an endpoint accepts file uploads, in which case you must use `multipart/form-data`. Every successful response body is JSON.
+
+## Authentication
+
+Protected endpoints require a Bearer token in the `Authorization` header. You obtain a token by calling `POST /api/login` or `POST /api/register`. See the [authentication guide](/api/authentication) for full details.
+
+```http
+Authorization: Bearer <your_access_token>
+```
+
+## Error format
+
+All error responses return a JSON object with at least a `message` key. Validation errors (HTTP `422`) additionally include an `errors` object whose keys are the failing field names.
+
+```json
+{
+  "message": "The given data was invalid.",
+  "errors": {
+    "email": ["The email field is required."],
+    "password": ["The password must be at least 6 characters."]
+  }
+}
+```
+
+| Status | Meaning |
+|--------|---------|
+| `401` | Unauthenticated — token missing or invalid |
+| `403` | Forbidden — account rejected or session revoked |
+| `404` | Resource not found |
+| `422` | Validation error — see `errors` for field details |
+| `500` | Internal server error |
+
+## Endpoint groups
+
+<CardGroup cols={2}>
+  <Card title="Authentication endpoints" href="/api/auth-endpoints">
+    Register, log in with email or Google, manage sessions, and reset passwords.
+  </Card>
+  <Card title="Incident report endpoints" href="/api/incident-endpoints">
+    Submit geo-located incident reports and retrieve your report history.
+  </Card>
+  <Card title="Profile endpoints" href="/api/profile-endpoints">
+    View and update your citizen profile, and change your password.
+  </Card>
+  <Card title="Category endpoints" href="/api/category-endpoints">
+    Fetch the list of active incident categories for your report picker.
+  </Card>
+</CardGroup>

@@ -1,0 +1,53 @@
+---
+title: "View incident statistics and the GPS heatmap"
+description: "Monitor live report counts, per-category status breakdowns with three bars each, and an interactive heatmap of all incident coordinates."
+---
+
+The statistics panel at `/admin/estadisticas` gives administrators a real-time picture of platform activity. It combines high-level summary cards, a per-category bar chart, and an interactive GPS heatmap built from the coordinates of every reported incident. All data is queried fresh on every page load — there is no caching layer.
+
+## Summary cards
+
+The panel displays five counters derived directly from the `incidencias` table:
+
+| Card | Value |
+| --- | --- |
+| Total reports | Count of all rows in `incidencias` |
+| Resolved | Count where `estado = 'resuelto'` |
+| In process | Count where `estado = 'en proceso'` |
+| Pending | Count where `estado = 'pendiente'` |
+| Active cases | Sum of pending + in process |
+
+These cards are useful for tracking overall platform health and whether the backlog is growing or shrinking over time.
+
+## Per-category bar chart
+
+Below the summary cards, a bar chart displays one group per active category (categories where `activa = true`). Each group contains three bars:
+
+| Bar | `estado` value |
+| --- | --- |
+| Pending | `pendiente` |
+| In process | `en proceso` |
+| Resolved | `resuelto` |
+
+The counts are computed server-side using Eloquent's `withCount` on the `Categoria` model, so each category already carries its three state counts when it reaches the view.
+
+<Note>
+  Only active categories appear in the bar chart. Categories with
+  `activa = false` are excluded from the query.
+</Note>
+
+## GPS heatmap
+
+The panel includes an interactive heatmap built from the GPS coordinates of every incident report. Coordinates are fetched from the `latitud` and `longitud` columns of the `incidencias` table across all reports, regardless of category or state.
+
+Hotspots on the map highlight areas with a high density of reported incidents, helping administrators and city planners identify zones that require the most attention.
+
+<Note>
+  The heatmap includes coordinates from all reports, including those filed under
+  inactive categories and reports in any state. No geographic filter is applied
+  by default.
+</Note>
+
+## Live data
+
+Every metric on this page is computed at request time. Refreshing the page always reflects the latest state of the database. There is no need to manually trigger a refresh or wait for a scheduled job.

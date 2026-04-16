@@ -1,28 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Incidencias Backend",
+  "projectType": "saas",
+  "projectName": "Incidencias Backend",
+  "projectDescription": "A Laravel-based civic incident reporting platform with a REST API for a mobile app and an admin web panel for managing citizen reports, user verification, and push notifications.",
   "theme": "luma",
-  "colors": {
-    "primary": "#fc2c24",
-    "light": "#040404",
-    "dark": "#e29d78"
-  },
-  "favicon": "https://media.brand.dev/55480c38-4203-413d-8622-69e15c7b6ed1.jpg",
-  "logo": {
-    "light": "https://media.brand.dev/a38501a7-458d-4f61-8fc0-8bd969c561f8.svg",
-    "dark": "https://media.brand.dev/a38501a7-458d-4f61-8fc0-8bd969c561f8.svg"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/Dannygs17/incidencias-backend"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/Dannygs17/incidencias-backend"
-    }
-  },
+  "primaryColor": "#fc2c24",
+  "lightColor": "#040404",
+  "darkColor": "#e29d78",
   "navigation": {
     "tabs": [
       {
@@ -86,5 +69,33 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Citizen registration with CURP and INE document upload",
+    "Admin user approval/rejection workflow with email notifications",
+    "Geo-located incident reporting via mobile API",
+    "Firebase push notifications for incident status updates",
+    "Admin web panel with incident management and statistics dashboard",
+    "Google OAuth login via Firebase",
+    "6-digit PIN-based password recovery via email",
+    "Laravel Sanctum token-based API authentication",
+    "Incident heatmap visualization and per-category statistics"
+  ],
+  "publicApiSurface": [
+    "POST /api/register",
+    "POST /api/login",
+    "POST /api/login-google",
+    "POST /api/forgot-password",
+    "POST /api/reset-password-pin",
+    "GET /api/user",
+    "POST /api/user/fcm-token",
+    "POST /api/verificar-cuenta",
+    "GET /api/user/profile",
+    "POST /api/user/profile/update",
+    "POST /api/user/profile/password",
+    "POST /api/incidencias",
+    "GET /api/mis-reportes",
+    "GET /api/categorias",
+    "POST /api/logout"
+  ]
 }

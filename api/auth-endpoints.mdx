@@ -1,0 +1,255 @@
+---
+title: "Authentication API endpoints reference"
+description: "Full reference for all Incidencias auth endpoints: register, login, Google login, session sync, FCM token, identity verification, password reset, logout."
+---
+
+These endpoints handle the full citizen authentication lifecycle: creating a new account with identity documents, signing in with email/password or Google, syncing account status, storing a Firebase Cloud Messaging token for push notifications, verifying identity documents, recovering a forgotten password, and ending a session. Public endpoints require no token; protected ones require `Authorization: Bearer <token>`.
+
+---
+
+## POST /api/register
+
+Creates a new citizen account and returns an access token. The account begins in `pending` status and must be approved by an administrator before the citizen can submit reports.
+
+**Access:** Public  
+**Content-Type:** `multipart/form-data` (because of file uploads)
+
+<ParamField body="name" type="string" required>
+  The citizen's full name.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  A unique email address. Used for login and password recovery.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Account password. Minimum 6 characters.
+</ParamField>
+
+<ParamField body="curp" type="string" required>
+  The citizen's CURP (unique population registry code). Must be unique in the system.
+</ParamField>
+
+<ParamField body="ine_frente" type="file" required>
+  Front photo of the citizen's INE (national ID). Accepted formats: `jpg`, `jpeg`, `png`. Maximum 2 MB.
+</ParamField>
+
+<ParamField body="ine_reverso" type="file" required>
+  Back photo of the citizen's INE. Same format and size constraints as `ine_frente`.
+</ParamField>
+
+**Response — 201 Created**
+
+```json
+{
+  "message": "Registro exitoso.",
+  "access_token": "1|abc123...",
+  "user": { ... },
+  "status": "pending"
+}
+```
+
+---
+
+## POST /api/login
+
+Authenticates an existing citizen with email and password. Returns `403` if the account has been rejected by an administrator.
+
+**Access:** Public
+
+<ParamField body="email" type="string" required>
+  The citizen's registered email address.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The account password.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "access_token": "1|abc123...",
+  "user": { ... }
+}
+```
+
+<Note>
+Returns `401` with `{"message": "Credenciales incorrectas"}` if the email/password combination is wrong. Returns `403` with a `motivo` field if the account status is `rejected`.
+</Note>
+
+---
+
+## POST /api/login-google
+
+Authenticates or registers a citizen using a Google account (via Firebase). If the email does not exist in the system, a new account is created automatically with `status: invitado`. Returns `403` if the existing account is rejected.
+
+**Access:** Public
+
+<ParamField body="email" type="string" required>
+  The Google account email address.
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  The display name from Google.
+</ParamField>
+
+<ParamField body="photoURL" type="string">
+  Optional profile photo URL from Google.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "access_token": "1|abc123...",
+  "user": { ... }
+}
+```
+
+---
+
+## POST /api/forgot-password
+
+Sends a 6-digit PIN to the provided email address for password recovery. For security, the response is identical whether or not the email exists in the system.
+
+**Access:** Public
+
+<ParamField body="email" type="string" required>
+  The email address associated with the account.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Si el correo existe, enviaremos un PIN."
+}
+```
+
+---
+
+## POST /api/reset-password-pin
+
+Verifies the PIN sent by `forgot-password` and sets a new password. The PIN is invalidated after a successful reset.
+
+**Access:** Public
+
+<ParamField body="email" type="string" required>
+  The email address used in the `forgot-password` request.
+</ParamField>
+
+<ParamField body="pin" type="string" required>
+  The 6-digit PIN received by email. Exactly 6 characters.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The new password. Minimum 6 characters. Must match `password_confirmation`.
+</ParamField>
+
+<ParamField body="password_confirmation" type="string" required>
+  Confirmation of the new password. Must match `password`.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Contraseña actualizada correctamente."
+}
+```
+
+<Note>
+Returns `400` with `{"message": "El código PIN es incorrecto o ha expirado."}` if the email/PIN combination is not found.
+</Note>
+
+---
+
+## GET /api/user
+
+Returns the authenticated user's current record. Used by the mobile app to synchronise account status in real time. If the administrator has rejected the account since the user last logged in, this endpoint deletes all tokens and returns `403`.
+
+**Access:** Protected
+
+**Response — 200 OK** — the full user object.
+
+```json
+{
+  "id": 1,
+  "name": "María López",
+  "email": "maria@example.com",
+  "role": "ciudadano",
+  "status": "approved",
+  ...
+}
+```
+
+<Warning>
+A `403` response from this endpoint means all tokens have been revoked server-side. Clear the stored token immediately and redirect to the login screen.
+</Warning>
+
+---
+
+## POST /api/user/fcm-token
+
+Saves a Firebase Cloud Messaging (FCM) device token for the authenticated user so the backend can send push notifications when a report status changes.
+
+**Access:** Protected
+
+<ParamField body="fcm_token" type="string" required>
+  The FCM registration token for the user's current device.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Token de dispositivo guardado correctamente."
+}
+```
+
+---
+
+## POST /api/verificar-cuenta
+
+Submits or updates the citizen's identity documents (CURP and/or INE photos) for administrator review. Sets the account `status` back to `pending` and clears any previous rejection reason. Intended for Google users who need to verify their identity, or citizens whose documents were rejected and need to resubmit.
+
+**Access:** Protected  
+**Content-Type:** `multipart/form-data`
+
+<ParamField body="curp" type="string">
+  Optional CURP (18 characters). Stored in uppercase.
+</ParamField>
+
+<ParamField body="ine_frente" type="file">
+  Optional new front photo of INE. Accepted formats: `jpg`, `jpeg`, `png`. Maximum 2 MB.
+</ParamField>
+
+<ParamField body="ine_reverso" type="file">
+  Optional new back photo of INE. Same format and size constraints as `ine_frente`.
+</ParamField>
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Documentación actualizada. En revisión.",
+  "user": { ... }
+}
+```
+
+---
+
+## POST /api/logout
+
+Ends the current session by deleting the active token. Also clears the stored FCM token so the device no longer receives push notifications after logout.
+
+**Access:** Protected
+
+**Response — 200 OK**
+
+```json
+{
+  "message": "Sesión cerrada"
+}
+```

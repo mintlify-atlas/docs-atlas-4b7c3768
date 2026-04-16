@@ -1,0 +1,40 @@
+---
+title: 'Automated email notifications for citizens'
+description: 'Incidencias Backend sends five transactional emails: account approval, rejection, correction requests, resolved reports, and password reset PINs.'
+---
+
+Incidencias Backend sends transactional emails at key points in the citizen account lifecycle and the incident report workflow. All email sending is handled via Laravel's `Mail` facade using dedicated Mailable classes. Each email is triggered by a specific admin action or citizen request, and delivery failures are caught and logged so they never block the underlying operation from completing.
+
+## Email triggers
+
+| Trigger | Mailable | Recipient | When sent |
+|---|---|---|---|
+| Account approved | `CuentaAprobada` | Citizen | Admin clicks Approve on a pending citizen account |
+| Document corrections needed | `CorregirDocumentacion` | Citizen | Admin clicks Request Corrections on a pending account |
+| Account rejected | `CuentaRechazada` | Citizen | Admin clicks Reject on a citizen account |
+| Incident resolved | `ReporteResuelto` | Citizen | Admin sets a report's `estado` to `resuelto` |
+| Password reset PIN | `RecuperarPasswordPin` | Citizen | Citizen submits `POST /api/forgot-password` |
+
+## Mail configuration
+
+Set the following variables in your `.env` file to configure the mail driver and sender identity:
+
+```ini .env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USERNAME=your-username
+MAIL_PASSWORD=your-password
+MAIL_FROM_ADDRESS=no-reply@example.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+<Tip>
+  For production deployments, use a transactional email provider such as Mailgun, Postmark, or Amazon SES instead of the default `log` driver. These providers offer delivery tracking, bounce handling, and higher throughput.
+</Tip>
+
+## Error handling
+
+<Note>
+  Email sending on incident resolution is wrapped in a `try/catch` block. If the email fails, the error is written to the Laravel log, but the report status update is still committed and the push notification is still sent. Email delivery failure does not roll back the state change.
+</Note>

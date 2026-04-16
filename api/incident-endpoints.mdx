@@ -1,0 +1,136 @@
+---
+title: "Incident report API endpoints reference"
+description: "Submit geo-located reports with GPS coordinates and a base64 image via POST /api/incidencias, and retrieve your report history via GET /api/mis-reportes."
+---
+
+Incident endpoints let citizens submit new reports tied to a geographic coordinate and retrieve a history of their own past reports. Both endpoints are protected and require a valid Bearer token. Submitting a report additionally requires that the citizen's account has been approved by an administrator — accounts in `pending`, `invitado`, or `rejected` status will have their requests created but the system state may not reflect expected approval flows.
+
+---
+
+## POST /api/incidencias
+
+Creates a new incident report for the authenticated citizen. The report is saved with `estado: pendiente` and the citizen is notified via push notification when an administrator updates its status.
+
+**Access:** Protected (`auth:sanctum`)
+
+<Warning>
+Only citizens with account `status` of `approved` should submit reports. Accounts that are still `pending` or set as `invitado` (Google users who have not verified their documents) are in a restricted state and should be prompted to complete their verification first.
+</Warning>
+
+<ParamField body="categoria_id" type="integer" required>
+  The ID of the incident category. Must reference an existing row in the `categorias` table. Fetch available categories from `GET /api/categorias`.
+</ParamField>
+
+<ParamField body="descripcion" type="string">
+  Optional free-text description of the incident. No maximum length enforced at the API level.
+</ParamField>
+
+<ParamField body="imagen" type="string">
+  Optional base64-encoded image of the incident. The backend automatically strips the `data:<mime>;base64,` prefix if present, so you may pass either the raw base64 string or the full data URI. The image is stored as a JPEG file on the server.
+</ParamField>
+
+<ParamField body="latitud" type="number" required>
+  Latitude of the incident location as a decimal number (e.g., `19.4326`).
+</ParamField>
+
+<ParamField body="longitud" type="number" required>
+  Longitude of the incident location as a decimal number (e.g., `-99.1332`).
+</ParamField>
+
+<Note>
+When sending `imagen`, pass a base64 string in the JSON body — do **not** use `multipart/form-data` for this endpoint. The backend decodes and saves the image server-side.
+</Note>
+
+**Response — 201 Created**
+
+```json
+{
+  "status": "success",
+  "message": "Reporte creado correctamente",
+  "data": {
+    "id": 42,
+    "user_id": 7,
+    "categoria_id": 3,
+    "descripcion": "Bache en la calle principal",
+    "imagen_path": "incidencias/incidencia_1718000000.jpg",
+    "latitud": "19.4326",
+    "longitud": "-99.1332",
+    "estado": "pendiente",
+    "created_at": "2024-06-10T12:00:00.000000Z",
+    "updated_at": "2024-06-10T12:00:00.000000Z"
+  }
+}
+```
+
+**Example request**
+
+```bash
+curl -X POST https://your-domain.com/api/incidencias \
+  -H "Authorization: Bearer 1|abc123..." \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "categoria_id": 3,
+    "descripcion": "Bache en la calle principal",
+    "latitud": 19.4326,
+    "longitud": -99.1332,
+    "imagen": "/9j/4AAQSkZJRgABAQEA..."
+  }'
+```
+
+---
+
+## GET /api/mis-reportes
+
+Returns all incident reports submitted by the authenticated citizen, ordered from newest to oldest. Each report includes the `categoria` relation (name and icon) and two computed URL fields — `imagen_url` and `evidencia_url` — that resolve to full absolute URLs for display in the app.
+
+**Access:** Protected (`auth:sanctum`)
+
+**Response — 200 OK** — a JSON array of report objects.
+
+```json
+[
+  {
+    "id": 42,
+    "user_id": 7,
+    "categoria_id": 3,
+    "descripcion": "Bache en la calle principal",
+    "imagen_path": "incidencias/incidencia_1718000000.jpg",
+    "latitud": "19.4326",
+    "longitud": "-99.1332",
+    "estado": "pendiente",
+    "comentario_admin": null,
+    "evidencia_path": null,
+    "created_at": "2024-06-10T12:00:00.000000Z",
+    "updated_at": "2024-06-10T12:00:00.000000Z",
+    "imagen_url": "https://your-domain.com/storage/incidencias/incidencia_1718000000.jpg",
+    "evidencia_url": null,
+    "categoria": {
+      "id": 3,
+      "nombre": "Vialidad",
+      "activa": true,
+      "icono": "car-outline",
+      "created_at": "2024-01-01T00:00:00.000000Z",
+      "updated_at": "2024-01-01T00:00:00.000000Z"
+    }
+  }
+]
+```
+
+**Report object fields**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Unique report identifier |
+| `user_id` | integer | ID of the reporting citizen |
+| `categoria_id` | integer | ID of the incident category |
+| `descripcion` | string \| null | Citizen-provided description |
+| `imagen_path` | string \| null | Relative storage path of the uploaded image |
+| `latitud` | string | Decimal latitude |
+| `longitud` | string | Decimal longitude |
+| `estado` | string | `pendiente`, `en proceso`, or `resuelto` |
+| `comentario_admin` | string \| null | Note added by the administrator |
+| `evidencia_path` | string \| null | Relative path of admin-uploaded evidence photo |
+| `imagen_url` | string \| null | Absolute URL for the citizen's incident photo |
+| `evidencia_url` | string \| null | Absolute URL for the administrator's evidence photo |
+| `categoria` | object | Loaded category relation — see [category endpoints](/api/category-endpoints) |

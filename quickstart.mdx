@@ -1,80 +1,118 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Set up and run Incidencias Backend locally'
+description: 'Clone the repo, run migrations, and make your first authenticated API call. This guide takes you from zero to a working Sanctum token in minutes.'
 ---
 
-## Get started in three steps
+This quickstart covers everything you need to run Incidencias Backend on your local machine, register a citizen account with identity verification, and make your first authenticated API call. By the end you will have a working Laravel development server and a Sanctum access token ready for testing incident reports.
 
-Get your documentation site running locally and make your first customization.
+## Set up the project
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Dannygs17/incidencias-backend.git && cd incidencias-backend
+    ```
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Install PHP dependencies">
+    ```bash
+    composer install
+    ```
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="Copy the environment file and generate an application key">
+    ```bash
+    cp .env.example .env && php artisan key:generate
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    Open `.env` and update `DB_DATABASE` (and any other database credentials) before continuing.
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Run database migrations">
+    ```bash
+    php artisan migrate
+    ```
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Link the public storage disk">
+    ```bash
+    php artisan storage:link
+    ```
 
-### Step 3: Go live
+    This makes uploaded files (INE photos, incident images) accessible at `/storage/…` URLs.
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Start the development server">
+    ```bash
+    php artisan serve
+    ```
 
-## Next steps
+    The API is now available at `http://localhost:8000`.
+  </Step>
+</Steps>
 
-Now that you have your docs running, explore these key features:
+## Register a citizen
 
-<CardGroup cols={2}>
+New accounts require a CURP and two photos of the citizen's INE (front and back). Send the request as `multipart/form-data`:
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+```bash
+curl -X POST http://localhost:8000/api/register \
+  -F "name=Jane Doe" \
+  -F "email=jane@example.com" \
+  -F "password=secret123" \
+  -F "curp=DOEJ900101MDFXXX01" \
+  -F "ine_frente=@/path/to/ine_front.jpg" \
+  -F "ine_reverso=@/path/to/ine_back.jpg"
+```
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+A successful response returns HTTP `201` with an `access_token` and the newly created user object:
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+```json
+{
+  "message": "Registro exitoso.",
+  "access_token": "1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "user": {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "status": "pending"
+  },
+  "status": "pending"
+}
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Every new account starts with a `status` of `pending`. An administrator must approve the account through the web panel before the citizen can submit incident reports. Until then, protected endpoints will refuse requests from unapproved accounts.
 </Note>
+
+## Log in and get an access token
+
+Once your account is approved, exchange credentials for a Laravel Sanctum access token:
+
+```bash
+curl -X POST http://localhost:8000/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "jane@example.com", "password": "secret123"}'
+```
+
+The response includes the `access_token` you will attach as a `Bearer` token to every subsequent authenticated request:
+
+```json
+{
+  "access_token": "1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "user": {
+    "id": 1,
+    "name": "Jane Doe",
+    "status": "approved"
+  }
+}
+```
+
+Pass the token in the `Authorization` header for all protected routes:
+
+```bash
+curl http://localhost:8000/api/user \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+For a full breakdown of the authentication flow — including Google sign-in, account verification, and password recovery — see the [authentication overview](/auth/overview).

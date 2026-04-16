@@ -1,0 +1,83 @@
+---
+title: "Create and manage incident report categories"
+description: "Add, rename, activate, or deactivate the categories citizens choose when submitting reports. Only active categories appear in the mobile app."
+---
+
+Categories are the top-level classification that citizens choose when submitting an incident report from the mobile app. The categories panel at `/admin/categorias` provides a full CRUD interface for managing them. Only active categories appear in the mobile app's category picker and in the admin incident dashboard.
+
+## Category fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `nombre` | string | Display name shown to citizens in the mobile app. Must be unique across all categories. |
+| `activa` | boolean | When `true`, the category appears in the mobile app and the admin incident dashboard. When `false`, it is hidden from both. |
+| `icono` | string | Icon identifier used by the mobile app UI to render the category icon. |
+
+## CRUD operations
+
+### List all categories
+
+`GET /admin/categorias`
+
+Returns all categories regardless of their `activa` state. The admin view shows both active and inactive categories so you can re-enable them without recreating them.
+
+### Create a category
+
+`POST /admin/categorias`
+
+**Required fields:**
+
+| Field | Validation |
+| --- | --- |
+| `nombre` | Required; must be unique in the `categorias` table |
+| `icono` | Required; must be a string |
+
+The `activa` field is set from the request body. If omitted it falls back to the database column default.
+
+```json
+{
+  "nombre": "Alumbrado público",
+  "activa": true,
+  "icono": "lightbulb"
+}
+```
+
+### Update a category
+
+`PUT /admin/categorias/{id}`
+
+Accepts the same fields as the create endpoint. The uniqueness validation for `nombre` ignores the current record, so you can save a category with its existing name unchanged.
+
+```json
+{
+  "nombre": "Alumbrado público",
+  "activa": false,
+  "icono": "lightbulb-off"
+}
+```
+
+### Delete a category
+
+`DELETE /admin/categorias/{id}`
+
+Permanently removes the category record. If existing incident reports reference the category, the deletion fails and an error message is returned.
+
+<Warning>
+  Deleting a category that has associated reports is blocked. Deactivate the
+  category instead to hide it from citizens while preserving the historical
+  report data.
+</Warning>
+
+## Deactivating vs. deleting
+
+Setting `activa = false` hides a category from:
+
+- The mobile app's category picker, preventing citizens from filing new reports under it
+- The admin incident dashboard category list
+
+It does **not** delete or hide existing reports already filed under that category. Those reports remain accessible and are included in the statistics panel.
+
+<Tip>
+  Prefer deactivating over deleting. A deactivated category can be re-enabled at
+  any time and all historical reports remain intact.
+</Tip>

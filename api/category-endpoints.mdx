@@ -1,0 +1,87 @@
+---
+title: "Category API endpoint reference"
+description: "GET /api/categorias returns all categories from the database. Filter client-side on activa: true to populate the mobile app's report category picker."
+---
+
+The category endpoint returns the incident categories that citizens can choose from when submitting a report. Categories are managed exclusively by administrators through the web panel; the mobile API exposes a read-only view of all categories currently stored in the database. Use the returned `id` values as the `categoria_id` field when calling `POST /api/incidencias`.
+
+---
+
+## GET /api/categorias
+
+Returns a JSON array of all categories. This endpoint is protected and requires a valid Bearer token.
+
+**Access:** Protected (`auth:sanctum`)
+
+<Note>
+The API currently returns all categories from the database. Only categories with `activa: true` are intended for display in the mobile app's category picker — filter client-side on `activa === true` to hide any deactivated categories.
+</Note>
+
+**Response — 200 OK** — a JSON array of category objects.
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Vialidad",
+    "activa": true,
+    "icono": "car-outline",
+    "created_at": "2024-01-01T00:00:00.000000Z",
+    "updated_at": "2024-01-01T00:00:00.000000Z"
+  },
+  {
+    "id": 2,
+    "nombre": "Alumbrado Público",
+    "activa": true,
+    "icono": "bulb-outline",
+    "created_at": "2024-01-01T00:00:00.000000Z",
+    "updated_at": "2024-01-01T00:00:00.000000Z"
+  },
+  {
+    "id": 3,
+    "nombre": "Áreas Verdes",
+    "activa": false,
+    "icono": "leaf-outline",
+    "created_at": "2024-01-01T00:00:00.000000Z",
+    "updated_at": "2024-03-15T09:00:00.000000Z"
+  }
+]
+```
+
+**Category object fields**
+
+<ResponseField name="id" type="integer">
+  Unique identifier for the category. Use this value as `categoria_id` when submitting an incident report.
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Human-readable category name displayed to citizens in the app (e.g., `"Vialidad"`, `"Alumbrado Público"`).
+</ResponseField>
+
+<ResponseField name="activa" type="boolean">
+  Whether the category is currently active. Only active categories (`true`) should be shown in the report picker.
+</ResponseField>
+
+<ResponseField name="icono" type="string">
+  Ionicons icon name used to render the category icon in the mobile app (e.g., `"car-outline"`, `"bulb-outline"`).
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 timestamp of when the category was created.
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  ISO 8601 timestamp of the last update to the category record.
+</ResponseField>
+
+**Example request**
+
+```bash
+curl -X GET https://your-domain.com/api/categorias \
+  -H "Authorization: Bearer 1|abc123..." \
+  -H "Accept: application/json"
+```
+
+<Warning>
+Deactivated categories (`activa: false`) are included in the API response but should not be presented to citizens in the report form. The administrator disables categories through the web panel; your app must filter them out on the client side.
+</Warning>

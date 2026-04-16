@@ -1,0 +1,68 @@
+---
+title: "Incidencias Backend: Civic Incident Reporting Platform"
+description: "Incidencias Backend is a Laravel API powering a mobile app for citizens to report civic incidents and an admin panel for managing those reports."
+---
+
+Incidencias Backend is a full-stack civic reporting platform built on Laravel 12. It provides a REST API for a mobile application (built with Ionic) that allows citizens to submit geo-located incident reports — such as potholes, broken streetlights, or public safety issues — and an admin web panel where government administrators can review, manage, and resolve those reports.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Set up the project locally and make your first API call in minutes.
+  </Card>
+  <Card title="Authentication" icon="lock" href="/auth/overview">
+    Learn how citizens authenticate via email/password or Google OAuth.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore every endpoint: auth, incidents, profiles, and categories.
+  </Card>
+  <Card title="Admin Panel" icon="shield-halved" href="/admin/overview">
+    Manage citizen accounts, review reports, and track resolution statistics.
+  </Card>
+</CardGroup>
+
+## What Incidencias Backend does
+
+The platform connects two types of users:
+
+- **Citizens** register via the mobile app, submit their identity documents (CURP + INE), and once approved by an admin, can report incidents at GPS coordinates with photos and descriptions.
+- **Administrators** access a web panel to verify citizen accounts, review incident reports by category, update report statuses (pending → in process → resolved), and view heatmaps and statistics.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Identity verification" icon="id-card">
+    Citizens upload CURP and INE document photos during registration. Admins approve, request corrections, or reject accounts.
+  </Card>
+  <Card title="Geo-located reports" icon="map-pin">
+    Incidents are submitted with GPS coordinates and optional photos, mapped in a real-time heatmap in the admin panel.
+  </Card>
+  <Card title="Push notifications" icon="bell">
+    Firebase Cloud Messaging delivers real-time status updates to citizens when their reports are processed.
+  </Card>
+  <Card title="Email notifications" icon="envelope">
+    Automatic emails notify citizens of account approval, rejection, correction requests, and resolved reports.
+  </Card>
+  <Card title="Google OAuth" icon="google">
+    Citizens can sign in with their Google account via Firebase. Guest accounts can later complete identity verification.
+  </Card>
+  <Card title="Statistics dashboard" icon="chart-bar">
+    Admins view per-category incident counts, status breakdowns, and an interactive incident heatmap.
+  </Card>
+</CardGroup>
+
+## How the platform works
+
+<Steps>
+  <Step title="Citizen registers">
+    A citizen submits their name, email, password, CURP, and INE document photos through the mobile API. Their account starts in `pending` status.
+  </Step>
+  <Step title="Admin reviews identity">
+    An administrator logs into the web panel, reviews the submitted documents, and approves, requests corrections, or rejects the account. The citizen is notified by email.
+  </Step>
+  <Step title="Citizen reports an incident">
+    Once approved, the citizen selects a category, adds a description and photo, and submits the report with their GPS coordinates.
+  </Step>
+  <Step title="Admin resolves the report">
+    The admin views reports by category, updates the status to "in process" or "resolved," adds a comment, and optionally uploads evidence. The citizen receives a push notification and email.
+  </Step>
+</Steps>

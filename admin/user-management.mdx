@@ -1,0 +1,80 @@
+---
+title: "Approve, reject, and manage citizen accounts"
+description: "Review uploaded INE documents, approve or permanently reject citizen accounts, request corrections, and delete records from the admin user panel."
+---
+
+When a citizen registers in the mobile app they upload identity documents — a CURP and both sides of their INE card — and their account is created with `status = 'pending'`. The user management panel at `/admin/usuarios` is where admins review those documents and decide whether to grant access, ask for corrections, or permanently block the account.
+
+## User list
+
+`GET /admin/usuarios` returns all users with `role = 'ciudadano'`, ordered from newest to oldest by `created_at`. Each row in the list shows the citizen's name, email, uploaded documents, and their current status.
+
+| Status value | Meaning |
+| --- | --- |
+| `pending` | Registered and awaiting admin review |
+| `approved` | Identity verified; access granted to the mobile app |
+| `action_required` | Corrections requested; citizen must re-upload one or more documents |
+| `rejected` | Account permanently blocked |
+
+## Actions
+
+### Approve
+
+`POST /admin/user/{id}/approve`
+
+Grants the citizen full access to the mobile app.
+
+- Sets `status` to `approved`
+- Clears any previous `rejection_reason` and `correction_fields`
+- Sends a **CuentaAprobada** email to the citizen's registered address
+
+### Request corrections
+
+`POST /admin/user/{id}/corregir`
+
+Asks the citizen to re-upload specific documents before the account can be approved.
+
+**Required request fields:**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `motivo` | string (max 255) | Reason for the correction request, shown to the citizen in the notification email |
+| `correction_fields` | array | One or more of: `curp`, `ine_frente`, `ine_reverso` |
+
+- Sets `status` to `action_required`
+- Stores `motivo` in `rejection_reason` and the field list in `correction_fields` (persisted as a JSON array)
+- Sends a **CorregirDocumentacion** email listing the specific documents the citizen must re-upload
+
+### Reject
+
+`POST /admin/user/{id}/reject`
+
+Permanently blocks the citizen from the platform.
+
+**Required request fields:**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `motivo` | string (max 255) | Rejection reason, stored on the user record and shown to the citizen |
+
+- Sets `status` to `rejected` and stores `motivo` in `rejection_reason`
+- Sends a **CuentaRechazada** email explaining the reason to the citizen
+- Immediately deletes all Laravel Sanctum API tokens for that user, expelling them from any active mobile session
+
+<Warning>
+  Rejection is permanent. If a rejected citizen attempts to log in via the API
+  they receive a `403` response that includes the stored `rejection_reason`.
+  The mobile app displays this reason to the user.
+</Warning>
+
+### Delete
+
+`DELETE /admin/user/{id}`
+
+Permanently removes the user record and all associated API tokens from the database. This action cannot be undone and does not send a notification email to the citizen.
+
+<Warning>
+  Use rejection instead of deletion if you want to preserve the citizen's
+  incident report history. Deleting the user also removes all foreign-key
+  references from their reports.
+</Warning>
